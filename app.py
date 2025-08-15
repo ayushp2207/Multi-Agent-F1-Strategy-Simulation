@@ -633,60 +633,55 @@ else:
                     user_choice = st.session_state.get('strategy_choice', None)
 
                     def _show_image(path):
-                        """Show image; preserve GIF animation by sending raw bytes."""
+                        """
+                        Show image resizing it to half the original width.
+                        For GIFs: determine original width via PIL, then stream raw bytes to st.image
+                        with a width parameter so the animation is preserved and scaled.
+                        For static images: resize via PIL to maintain quality.
+                        """
                         if not os.path.exists(path):
                             return False
                         lower = path.lower()
                         try:
                             if lower.endswith('.gif'):
-                                # Read raw bytes so the GIF animates
-                                with open(path, 'rb') as f:
+                                # Determine original width using PIL (first frame) then display raw bytes with width
+                                with Image.open(path) as im:
+                                    orig_w = im.width if getattr(im, "width", None) else im.size[0]
+                                half_w = max(100, int(orig_w // 2))
+                                with open(path, "rb") as f:
                                     img_bytes = f.read()
-                                st.image(img_bytes, use_container_width =True)
+                                # Pass width to st.image (do not use use_column_width=True)
+                                st.image(img_bytes, use_column_width=False, width=half_w)
                             else:
-                                # Open with PIL for jpeg/png (PIL is ok here)
+                                # Static image: open and resize via PIL preserving aspect ratio
                                 img = Image.open(path)
-                                st.image(img, use_container_width =True)
+                                orig_w, orig_h = img.size
+                                half_w = max(100, int(orig_w // 2))
+                                new_h = max(1, int(orig_h * (half_w / orig_w)))
+                                resized = img.resize((half_w, new_h), Image.LANCZOS)
+                                st.image(resized, use_column_width=False)
                             return True
-                        except Exception as _e:
-                            # final fallback: let st.image attempt to load from path
+                        except Exception:
+                            # fallback to default st.image behavior
                             try:
-                                st.image(path, use_container_width =True)
+                                st.image(path, use_column_width=False)
                                 return True
                             except Exception:
                                 return False
 
                     # Show image (if available) above the analysis
                     if user_choice == 'A':
-                        plan_a_image_path = os.path.join("assets", "plan_a.gif")
-                        if os.path.exists(plan_a_image_path):
-                            if plan_a_image_path.lower().endswith('.gif'):
-                                with open(plan_a_image_path, 'rb') as f:
-                                    st.image(f.read(), use_container_width =True)
-                            else:
-                                img = Image.open(plan_a_image_path)
-                                st.image(img, use_container_width =True)
+                        candidate = os.path.join("plana.gif")
+                        if not os.path.exists(candidate):
+                            candidate = os.path.join("plana.jpg")
+                        _show_image(candidate)
                     else:
-                        plan_b_image_path = os.path.join("assets", "plan_b.gif")
-                        if os.path.exists(plan_b_image_path):
-                            if plan_b_image_path.lower().endswith('.gif'):
-                                with open(plan_b_image_path, 'rb') as f:
-                                    st.image(f.read(), use_container_width =True)
-                            else:
-                                img = Image.open(plan_b_image_path)
-                                st.image(img, use_container_width =True)
-
-                    plan_a_shown = False
-                    if user_choice == 'A':
-                        plan_a_image_path = os.path.join("plana.gif") 
-                        plan_a_shown = _show_image(plan_a_image_path)
-                    else:
-                        plan_b_image_path = os.path.join("planb.gif")
-                        _show_image(plan_b_image_path)
+                        candidate = os.path.join("planb.gif")
+                        if not os.path.exists(candidate):
+                            candidate = os.path.join("planb.jpg")
+                        _show_image(candidate)
 
                     full_text = "\n\n".join(paragraphs) if paragraphs else "No analysis available."
-
-                    # Single placeholder for the whole block (typed out)
                     block_placeholder = st.empty()
                     typed = ""
                     # Typewriter per character for the full message
