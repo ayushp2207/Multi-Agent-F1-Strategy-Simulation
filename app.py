@@ -243,6 +243,17 @@ else:
     div[data-testid="stMetricLabel"], div[data-testid="stMetricValue"] {
         color: white !important;
     }
+
+    /* --- ADD THIS NEW RULE --- */
+    /* Force sidebar headers back to black */
+    div[data-testid="stSidebarUserContent"] h1,
+    div[data-testid="stSidebarUserContent"] h2,
+    div[data-testid="stSidebarUserContent"] h3,
+    div[data-testid="stSidebarUserContent"] h4,
+    div[data-testid="stSidebarUserContent"] h5,
+    div[data-testid="stSidebarUserContent"] h6 {
+        color: black !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     
