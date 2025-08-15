@@ -236,11 +236,7 @@ else:
         div[data-testid="stMetricLabel"], div[data-testid="stMetricValue"] {
             color: white !important;
         }
-
-        /* Sidebar content */
-        div[data-testid="stSidebarUserContent"] p, div[data-testid="stSidebarUserContent"] li, div[data-testid="stSidebarUserContent"] h1 {
-            color: white;
-        }
+                
         </style>
         """, unsafe_allow_html=True)
     
