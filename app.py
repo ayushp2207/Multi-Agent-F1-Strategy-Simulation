@@ -221,6 +221,29 @@ if st.session_state.show_guide:
 
 else:
     set_page_background('F1.avif')
+
+    st.markdown("""
+        <style>
+        /* Main page text and headers */
+        .stApp {
+            color: white;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            color: white !important;
+        }
+
+        /* Metric widgets */
+        div[data-testid="stMetricLabel"], div[data-testid="stMetricValue"] {
+            color: white !important;
+        }
+
+        /* Sidebar content */
+        div[data-testid="stSidebarUserContent"] p, div[data-testid="stSidebarUserContent"] li, div[data-testid="stSidebarUserContent"] h1 {
+            color: white;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    
     # --- Main Application ---
     st.title("Project Pit Wall 🏎️")
     st.markdown("### Live Race Simulation Dashboard")
