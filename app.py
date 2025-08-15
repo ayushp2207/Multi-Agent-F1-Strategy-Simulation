@@ -132,100 +132,93 @@ st.set_page_config(page_title="Project Pit Wall | F1 Strategy", layout="wide")
 initialize_session_state()
 
 if st.session_state.show_guide:
-    # Set the cool background
     set_page_background('F1.avif')
 
-    # Custom CSS for the "frosted glass" effect
+    # Custom CSS for a more refined look
     st.markdown("""
         <style>
         .guide-container {
-            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black */
-            backdrop-filter: blur(10px); /* The frosted glass effect */
+            background-color: rgba(15, 15, 15, 0.7); /* Darker, classier background */
+            backdrop-filter: blur(12px);
             border-radius: 20px;
             padding: 2rem 3rem;
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #FFFFFF; /* White text */
+            text-align: center; /* Center align text */
+        }
+        .guide-container h1, .guide-container h2 {
+            font-weight: 700; /* Bold headers */
+            text-shadow: 0px 0px 10px rgba(0,0,0,0.5); /* Subtle shadow for pop */
+        }
+        .guide-container p {
+            font-size: 1.1rem; /* Slightly larger body text */
+            font-weight: 400; /* Normal weight for readability */
         }
         </style>
     """, unsafe_allow_html=True)
 
-    st.title("") # Clear the default title to give more space
-
-    # Wrap the guide content in our styled container
-    with st.container():
+    # Use columns to center the guide box
+    _, center_col, _ = st.columns([1, 2, 1])
+    with center_col:
+        # Wrap the guide content in our styled container
         st.markdown('<div class="guide-container">', unsafe_allow_html=True)
 
         # Page 1: Introduction
         if st.session_state.guide_page == 1:
-            st.header("Welcome to the Pit Wall 🏎️")
+            st.markdown("<h2>Welcome to the Pit Wall 🏎️</h2>", unsafe_allow_html=True)
             st.markdown(
                 """
-                You're not just a spectator anymore. You are the **Team Principal**.
-                
-                Project Pit Wall drops you into the hot seat of F1 strategy. Your calls, your pressure, your victory. This isn't just a simulation; it's a real-time test of your strategic nerve against historical race data.
-                """
+                <p>You're not just a spectator anymore. You are the <b>Team Principal</b>.
+                This simulator drops you into the hot seat of F1 strategy. Your calls, your pressure, your victory.</p>
+                """, unsafe_allow_html=True
             )
 
         # Page 2: How to Start
         elif st.session_state.guide_page == 2:
-            st.header("Step 1: The Pre-Race Briefing 📋")
+            st.markdown("<h2>Step 1: The Pre-Race Briefing 📋</h2>", unsafe_allow_html=True)
             st.markdown(
                 """
-                Every race starts with a plan. Configure your simulation in the sidebar:
-                
-                - **Select Year:** Choose the battleground season.
-                - **Select Race:** Pick the circuit that will test your wits.
-                - **Select Driver:** Back your champion.
-                
-                When you're ready, hit **▶️ Start Simulation** and go lights out.
-                """
+                <p>Configure your simulation in the sidebar. Choose the <b>Year</b>, <b>Race</b>, and your chosen <b>Driver</b>.
+                When you're ready, hit <b>▶️ Start Simulation</b> and go lights out.</p>
+                """, unsafe_allow_html=True
             )
-
+        
         # Page 3: The Dashboard Explained
         elif st.session_state.guide_page == 3:
-            st.header("Step 2: Reading the Race 📊")
+            st.markdown("<h2>Step 2: Reading the Race 📊</h2>", unsafe_allow_html=True)
             st.markdown(
                 """
-                Once the race is live, you'll have a constant stream of data on your dashboard:
-                
-                - **Timing Tower:** Live positions. Who's hunting, who's hunted.
-                - **Driver Intel:** Critical data on your driver—tire health, gaps to rivals, and more.
-                - **Lap Time Telemetry:** Visualize the pace. Are you gaining or losing ground?
-                - **Live Tire Status:** The heart of strategy. Keep a close eye on your tire temperatures—hot tires are fast, but they don't last.
-                """
+                <p>Your live dashboard is your eyes on the track. Monitor the <b>Timing Tower</b>, your driver's <b>Tire Status</b>, and gaps to <b>Rivals</b>. Every piece of data is a clue.</p>
+                """, unsafe_allow_html=True
             )
 
         # Page 4: Strategy Decisions
         elif st.session_state.guide_page == 4:
-            st.header("Step 3: It's Your Call ⚔️")
+            st.markdown("<h2>Step 3: It's Your Call ⚔️</h2>", unsafe_allow_html=True)
             st.markdown(
                 """
-                At critical moments, the race will pause. Your AI Pit Wall will feed you intel from four key specialists: the **Race Engineer**, **Tire Expert**, **Weather Forecaster**, and **Rival Analyst**.
-                
-                Your **Chief Strategist** will process their reports and present you with two paths: **Plan A** and **Plan B**. There's no right answer, only consequences. Make the call, and see how your decision stacks up against history.
-                """
+                <p>When the race pauses, your AI Pit Wall will report in. Your <b>Chief Strategist</b> will present two paths: <b>Plan A</b> and <b>Plan B</b>. There's no right answer, only consequences. Make the call.</p>
+                """, unsafe_allow_html=True
             )
 
         # Navigation Buttons
         st.markdown("<br>", unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 6, 1.2])
-
-        with col1:
+        nav_col1, nav_col2, nav_col3 = st.columns([1, 1, 1])
+        with nav_col1:
             if st.session_state.guide_page > 1:
-                if st.button("⬅️ Back"):
+                if st.button("⬅️ Back", use_container_width=True):
                     st.session_state.guide_page -= 1
                     st.rerun()
-
-        with col3:
+        with nav_col3:
             if st.session_state.guide_page < 4:
-                if st.button("Next ➡️", type="primary"):
+                if st.button("Next ➡️", type="primary", use_container_width=True):
                     st.session_state.guide_page += 1
                     st.rerun()
             elif st.session_state.guide_page == 4:
-                if st.button("Engage 🏁", type="primary"):
+                if st.button("Engage 🏁", type="primary", use_container_width=True):
                     st.session_state.show_guide = False
                     st.rerun()
-
+        
         st.markdown('</div>', unsafe_allow_html=True)
 
 else:

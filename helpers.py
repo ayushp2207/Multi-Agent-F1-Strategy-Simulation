@@ -22,12 +22,12 @@ def get_base64_of_bin_file(bin_file):
     return base64.b64encode(data).decode()
 
 def set_page_background(png_file):
-    """ Sets a background image for the Streamlit page. """
+    """ Sets a background image with a dark overlay for better text contrast. """
     bin_str = get_base64_of_bin_file(png_file)
     page_bg_img = f'''
     <style>
     .stApp {{
-        background-image: url("data:image/png;base64,{bin_str}");
+        background-image: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), url("data:image/png;base64,{bin_str}");
         background-size: cover;
         background-repeat: no-repeat;
         background-attachment: fixed;
