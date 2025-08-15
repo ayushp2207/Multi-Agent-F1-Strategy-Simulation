@@ -1,0 +1,13 @@
+# .gitignore
+
+# Ignore Python's cache and virtual environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Ignore the FastF1 cache directory
+fastf1_cache/
+
+# CRITICAL: Ignore your environment file with secrets
+env.py
