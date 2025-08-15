@@ -223,22 +223,28 @@ else:
     set_page_background('F1.avif')
 
     st.markdown("""
-        <style>
-        /* Main page text and headers */
-        .stApp {
-            color: white;
-        }
-        h1, h2, h3, h4, h5, h6 {
-            color: white !important;
-        }
+    <style>
+    /* Target ONLY the main page container, not the sidebar */
+    div[data-testid="stAppViewContainer"] {
+        color: white;
+    }
 
-        /* Metric widgets */
-        div[data-testid="stMetricLabel"], div[data-testid="stMetricValue"] {
-            color: white !important;
-        }
-                
-        </style>
-        """, unsafe_allow_html=True)
+    /* Target headers ONLY inside the main page container */
+    div[data-testid="stAppViewContainer"] h1,
+    div[data-testid="stAppViewContainer"] h2,
+    div[data-testid="stAppViewContainer"] h3,
+    div[data-testid="stAppViewContainer"] h4,
+    div[data-testid="stAppViewContainer"] h5,
+    div[data-testid="stAppViewContainer"] h6 {
+        color: white !important;
+    }
+
+    /* Metric widgets are only on the main page, so this is fine */
+    div[data-testid="stMetricLabel"], div[data-testid="stMetricValue"] {
+        color: white !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # --- Main Application ---
     st.title("Project Pit Wall 🏎️")
