@@ -6,6 +6,5 @@ Pillow==11.3.0
 plotly==6.2.0
 pydantic==2.11.7
 python-dotenv==1.1.1
-streamlit==1.30.0
 streamlit==1.48.0
 uvicorn==0.35.0
