@@ -446,8 +446,29 @@ else:
         
         elif st.session_state.simulation_phase == 'awaiting_choice' or st.session_state.simulation_phase == 'chosen':
 
+            st.markdown("""
+        <style>
+        /* Find the specific columns where the buttons are placed */
+        div[data-testid="stHorizontalBlock"] button {
+            /* Initial State: White button, black text */
+            background-color: #FFFFFF !important;
+            color: #000000 !important;
+            border: 2px solid #FFFFFF !important;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: all 0.3s ease-in-out; /* Smooth transition effect */
+        }
+        
+        /* Hover State: Transparent button, white text */
+        div[data-testid="stHorizontalBlock"] button:hover {
+            background-color: transparent !important;
+            color: #FFFFFF !important;
+            border-color: #FFFFFF !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
             if st.session_state.simulation_phase == 'awaiting_choice':
-                # Show strategy overlay with new layout
                 with strategy_discussion_placeholder.container():
                     st.markdown("---")
                     st.title("⚔️ PIT WALL STRATEGY REVIEW")
