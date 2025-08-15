@@ -14,6 +14,7 @@ from agents import (
 import os
 from PIL import Image
 import autogen
+import base64
 from helpers import (
     analyze_user_decision, run_agent_discussions_with_interruption, initialize_session_state, display_agent_message_with_typing,
     initialize_session_state, check_strategy_triggers, run_agent_discussions, display_radio_conversation, get_radio_message_for_lap, set_page_background )
@@ -644,13 +645,19 @@ else:
                         lower = path.lower()
                         try:
                             if lower.endswith('.gif'):
-                                # Determine original width using PIL (first frame) then display raw bytes with width
-                                with Image.open(path) as im:
-                                    orig_w = im.width if getattr(im, "width", None) else im.size[0]
-                                half_w = max(100, int(orig_w // 2))
-                                with open(path, "rb") as f:
-                                    img_bytes = f.read()
-                                st.image(img_bytes, use_container_width =False, width=half_w)
+                                # Read raw bytes and embed as base64 <img> so GIF animation is preserved.
+                                # Use CSS to display the GIF at ~50% width (adjust style as needed).
+                                try:
+                                    with open(path, "rb") as f:
+                                        b64 = base64.b64encode(f.read()).decode("utf-8")
+                                    html = f'<img src="data:image/gif;base64,{b64}" style="width:75%; height:auto; display:block; margin:auto;" />'
+                                    st.markdown(html, unsafe_allow_html=True)
+                                    return True
+                                except Exception:
+                                    # fallback to direct st.image as a last resort
+                                    with open(path, "rb") as f:
+                                        st.image(f.read(), use_column_width=False)
+                                    return True
                             else:
                                 # Static image: open and resize via PIL preserving aspect ratio
                                 img = Image.open(path)
