@@ -4,8 +4,6 @@ import fastf1 as ff1
 import os
 import pandas as pd
 
-# In data.py
-
 @st.cache_data(ttl=3600)
 def load_session_data(year, race, session_type):
     """Loads session data, ensuring telemetry is included."""

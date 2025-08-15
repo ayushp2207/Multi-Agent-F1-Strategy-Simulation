@@ -1,6 +1,9 @@
 # agents.py
 import autogen
-from env import GROQ_API_KEY
+import streamlit as st
+
+# Access the secret from Streamlit's secret management
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
 config_list_groq = [{"model": "llama3-8b-8192", "api_key": GROQ_API_KEY, "api_type": "groq"}]
 llm_config = {"config_list": config_list_groq, "temperature": 0.6}
