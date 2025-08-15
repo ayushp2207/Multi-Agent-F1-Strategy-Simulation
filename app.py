@@ -403,7 +403,7 @@ if st.session_state.simulation_running:
                     st.subheader("Your Decision, Team Principal")
 
                     colA, colB = st.columns(2)
-                    if colA.button("Execute Plan A", use_container_width=True, type="primary", key=f"plan_a_{lap_num}"):
+                    if colA.button("Execute Plan A", use_container_width=True, key=f"plan_a_{lap_num}"):
                         st.session_state.strategy_choice = 'A'
                         st.session_state.simulation_phase = 'showing_outcome'
                         strategy_discussion_placeholder.empty()
@@ -568,7 +568,7 @@ if st.session_state.simulation_running:
                         unsafe_allow_html=True
                     )
                     # you can tune speed here (increase to slow down)
-                    time.sleep(0.008)
+                    time.sleep(0.08)
 
                 # Replace with final text without caret
                 final_html = full_text.replace("\n", "<br>")
@@ -723,6 +723,6 @@ if st.session_state.simulation_running:
                 st.html(car_html)
 
         # Advance lap after a delay (only in normal phase)
-        time.sleep(1.5)
+        time.sleep(2)
         advance_lap()
         st.rerun()
