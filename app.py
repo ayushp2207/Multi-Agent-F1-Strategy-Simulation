@@ -650,8 +650,7 @@ else:
                                 half_w = max(100, int(orig_w // 2))
                                 with open(path, "rb") as f:
                                     img_bytes = f.read()
-                                # Pass width to st.image (do not use use_column_width=True)
-                                st.image(img_bytes, use_column_width=False, width=half_w)
+                                st.image(img_bytes, use_container_width =False, width=half_w)
                             else:
                                 # Static image: open and resize via PIL preserving aspect ratio
                                 img = Image.open(path)
@@ -659,12 +658,12 @@ else:
                                 half_w = max(100, int(orig_w // 2))
                                 new_h = max(1, int(orig_h * (half_w / orig_w)))
                                 resized = img.resize((half_w, new_h), Image.LANCZOS)
-                                st.image(resized, use_column_width=False)
+                                st.image(resized, use_container_width =False)
                             return True
                         except Exception:
                             # fallback to default st.image behavior
                             try:
-                                st.image(path, use_column_width=False)
+                                st.image(path, use_container_width =False)
                                 return True
                             except Exception:
                                 return False
