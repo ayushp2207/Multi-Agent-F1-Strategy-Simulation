@@ -131,237 +131,345 @@ st.set_page_config(page_title="Project Pit Wall | F1 Strategy", layout="wide")
 # Initialize session state
 initialize_session_state()
 
-# --- Main Application ---
-st.title("Project Pit Wall 🏎️")
-st.markdown("### Live Race Simulation Dashboard")
-
-# --- Sidebar for Session Selection ---
-st.sidebar.header("Race Selection")
-year = st.sidebar.selectbox("Select Year", [2023, 2022, 2021], index=0)
-races = ["Bahrain", "Jeddah", "Monaco", "Silverstone", "Monza", "Suzuka", "Las Vegas"]
-race_name = st.sidebar.selectbox("Select Race", races, index=0)
-
-# --- Load Data ---
-try:
-    session, laps = load_session_data(year, race_name, 'R')
-    total_laps = int(laps['LapNumber'].max())
-    driver_list = session.results['Abbreviation'].unique().tolist()
-    default_driver_index = driver_list.index('HAM') if 'HAM' in driver_list else 0
-    managed_driver = st.sidebar.selectbox("Select Driver to Manage", driver_list, index=default_driver_index)
-except Exception as e:
-    st.error(f"Could not load data for {year} {race_name}. Error: {e}")
-    st.stop()
-
-st.session_state.managed_driver = managed_driver
-
-
-# --- Sidebar Controls ---
-st.sidebar.header("Simulation Control")
-
-if st.session_state.simulation_running:
-    if st.sidebar.button("⏹️ Stop Simulation"):
-        stop_simulation()
-        st.rerun()
-else:
-    if st.sidebar.button("▶️ Start Simulation"):
-        start_simulation()
-        st.rerun()
-
-# --- Main Dashboard Placeholders ---
-header_placeholder = st.empty()
-event_placeholder = st.empty()
-
-# Create main layout
-col1, col2, col3 = st.columns([2, 1, 2])
-with col1:
-    leaderboard_placeholder = st.empty()
-with col2:
-    driver_panel_placeholder = st.empty()
-with col3:
-    plot_placeholder = st.empty()
-
-# Strategy phase placeholders - separate for each phase
-strategy_discussion_placeholder = st.empty()
-outcome_placeholder = st.empty()
-
-# Sidebar elements
-st.sidebar.header("Team Radio 📻")
-radio_placeholder = st.sidebar.empty()
-dialog_placeholder = st.sidebar.empty()
-
-# --- MAIN SIMULATION LOGIC ---
-if st.session_state.simulation_running:
-    lap_num = st.session_state.current_lap
+if st.session_state.show_guide:
+    st.title("Welcome to Project Pit Wall! 🏎️")
     
-    # Pre-calculate Tire Degradation Model
-    degradation_model = {}
-    for compound in laps['Compound'].unique():
-        compound_laps = laps[laps['Compound'] == compound]
-        if not compound_laps.empty:
-            degradation_model[compound] = round(compound_laps['LapTime'].dt.total_seconds().std() * 0.1, 3)
-
-    # Get current lap data
-    current_lap_data = laps.loc[laps['LapNumber'] == lap_num]
-    lap_start_time = current_lap_data['LapStartTime'].min() if not current_lap_data.empty else None
-
-    # --- PHASE CONTROL LOGIC ---
-    if st.session_state.simulation_phase == 'normal':
-        # Check for strategy triggers
-        trigger_reasons = check_strategy_triggers(lap_num, current_lap_data, session, laps, lap_start_time)
-        # --- NEW: Detect interruption context (SC / VSC / Rain) and store it BEFORE running agent discussions ---
-        interruption = None
-        try:
-            if not current_lap_data.empty and 'TrackStatus' in current_lap_data.columns:
-                track_status = str(current_lap_data['TrackStatus'].iloc[0])
-                if track_status in ['4', '5']:
-                    interruption = "Safety Car / Red Flag"
-                elif track_status in ['6', '7']:
-                    interruption = "Virtual Safety Car"
-
-            # Rain detection (reuse existing weather logic)
-            if pd.notna(lap_start_time) and hasattr(session, 'weather_data'):
-                try:
-                    weather_data = session.weather_data.loc[session.weather_data['Time'] <= lap_start_time]
-                    if (not weather_data.empty) and weather_data.iloc[-1].get('Rainfall'):
-                        interruption = "Rainfall / Wet Track"
-                except Exception:
-                    # ignore weather parsing errors
-                    pass
-        except Exception:
-            interruption = None
-
-        # Store interruption to session_state so downstream code (run_agent_discussions wrapper) can use it
-        st.session_state['current_interruption'] = interruption
-
-        # Store interruption in session state so downstream functions can access it
-        if interruption:
-            st.session_state['current_interruption'] = interruption
-            # Add it to trigger reasons only if it's not a generic periodic trigger
-            if interruption not in trigger_reasons:
-                trigger_reasons.append(interruption)
-        else:
-            # clear previous interruption if none currently detected
-            st.session_state['current_interruption'] = None
-
-        update_tire_temperatures()
-
-        if (lap_num % 10 == 0 or lap_num % 10 == 3 or lap_num % 10 == 7) and st.session_state.last_radio_lap != lap_num:
-            # Get driver position for context
-            driver_lap_data_df = laps.loc[(laps['LapNumber'] == lap_num) & (laps['Driver'] == managed_driver)]
-            if not driver_lap_data_df.empty:
-                driver_position = int(driver_lap_data_df.iloc[0]['Position']) if pd.notna(driver_lap_data_df.iloc[0]['Position']) else 10
-                
-                # Get radio message
-                radio_msg = get_radio_message_for_lap(lap_num, total_laps, driver_position)
-                
-                # Display radio conversation
-                with radio_placeholder.container():
-                    display_radio_conversation(
-                        radio_placeholder, 
-                        radio_msg["engineer"], 
-                        radio_msg["driver"], 
-                        managed_driver
-                    )
-                
-                st.session_state.last_radio_lap = lap_num
-        else:
-            # Show empty radio when no conversation
-            with radio_placeholder.container():
-                st.markdown(
-                    """
-                    <div style="
-                        background-color: #1a1a1a;
-                        padding: 15px;
-                        border-radius: 8px;
-                        text-align: center;
-                        color: #666;
-                        font-style: italic;
-                    ">
-                        📻 Team Radio - Standby
-                    </div>
-                    """, 
-                    unsafe_allow_html=True
-                )
-
-        # Display trigger info in sidebar
-        if trigger_reasons:
-            st.sidebar.write("🛑 Triggered by:", ", ".join(trigger_reasons))
-        else:
-            st.sidebar.write("✅ No trigger this lap")
-        
-        if st.session_state.get('current_interruption'):
-            st.sidebar.warning(f"Interruption detected: {st.session_state['current_interruption']}")
-        
-        # If triggers found and we haven't processed this lap yet
-        if trigger_reasons and st.session_state.last_strategy_lap != lap_num:
-            st.session_state.last_strategy_lap = lap_num
-            st.session_state.simulation_phase = 'strategy_discussion'
-            st.session_state.discussion_completed = False  # Reset discussion flag
-            st.rerun()
-    
-    elif st.session_state.simulation_phase == 'strategy_discussion':
-        # Only run agent discussions if not already completed
-        if not st.session_state.discussion_completed:
-            with st.spinner("Pit wall is deliberating..."):
-                agent_responses = run_agent_discussions(laps, session, lap_num, managed_driver)
-
-                # Use the wrapper to ensure interruption context is attached
-                interruption = st.session_state.get('current_interruption', None)
-                agent_responses = run_agent_discussions_with_interruption(laps, session, lap_num, managed_driver, interruption=interruption)
-                st.session_state.strategy_chat_history = agent_responses
-                st.session_state.discussion_completed = True  # Mark as completed
-                
-                # Update tire temperatures for the car display
-                update_tire_temperatures()
+    # Page 1: Introduction
+    if st.session_state.guide_page == 1:
+        st.header("Step into the Shoes of a Team Principal")
+        st.markdown(
+            """
+            This simulator puts you in charge of F1 race strategy. Using a team of AI agents, you'll analyze real race data and make the critical calls that can win or lose a Grand Prix.
             
-        # Move to awaiting choice phase
-        st.session_state.simulation_phase = 'awaiting_choice'
-        st.rerun()
+            Your mission is to experience the high-pressure, real-time decision-making that defines the sport.
+            """
+        )
+
+    # Page 2: How to Start
+    elif st.session_state.guide_page == 2:
+        st.header("Your Pre-Race Setup")
+        st.markdown(
+            """
+            To begin, you need to set the scene for your simulation:
+            
+            1.  **Select Year:** Choose the F1 season.
+            2.  **Select Race:** Pick the Grand Prix venue.
+            3.  **Select Driver:** Choose the driver you want to manage.
+            
+            Once you've made your selections in the sidebar, click **"▶️ Start Simulation"** to go lights out!
+            """
+        )
     
-    elif st.session_state.simulation_phase == 'awaiting_choice' or st.session_state.simulation_phase == 'chosen':
+    # Page 3: The Dashboard Explained
+    elif st.session_state.guide_page == 3:
+        st.header("The Live Race Dashboard")
+        st.markdown(
+            """
+            As the simulation runs, you'll see a live dashboard with key information:
+            - **Timing Tower:** A live leaderboard showing positions and intervals.
+            - **Driver Panel:** Your driver's status, tire wear, and gaps to nearby rivals.
+            - **Lap Time Chart:** A plot comparing the lap times of the top drivers.
+            - **Live Tire Status:** A visual of your car's tire temperatures, which are critical for performance and strategy.
+            """
+        )
 
-        if st.session_state.simulation_phase == 'awaiting_choice':
-            # Show strategy overlay with new layout
-            with strategy_discussion_placeholder.container():
-                st.markdown("---")
-                st.title("⚔️ PIT WALL STRATEGY REVIEW")
-                st.markdown("---")
+    # Page 4: Strategy Decisions
+    elif st.session_state.guide_page == 4:
+        st.header("Making the Call from the Pit Wall")
+        st.markdown(
+            """
+            At key moments, the simulation will pause, and your AI pit wall will provide reports:
+            - **🔧 Race Engineer:** Gives a technical overview of the car's status.
+            - **🏎️ Tire Expert:** Reports on tire wear and degradation.
+            - **🌤️ Weather Forecaster:** Provides updates on potential rain.
+            - **🎯 Rival Analyst:** Analyzes threats from competing drivers.
+            
+            Based on their input, the **👑 Chief Strategist** will present you with two options: **Plan A** and **Plan B**. Choose wisely! After your decision, you'll see an analysis of its impact.
+            """
+        )
 
-                # Create two main columns: Left for agent boxes, Right for leaderboard and car
-                left_col, right_col = st.columns([3, 2])
-                
-                with left_col:
-                    st.markdown("### Team Communications")
+    # Navigation Buttons
+    st.markdown("---")
+    col1, col2, col3, col4 = st.columns([1, 1, 5, 1.2])
+
+    with col1:
+        # Show "Previous" button if not on the first page
+        if st.session_state.guide_page > 1:
+            if st.button("⬅️ Previous"):
+                st.session_state.guide_page -= 1
+                st.rerun()
+
+    with col2:
+        # Show "Next" button if not on the last page
+        if st.session_state.guide_page < 4:
+            if st.button("Next ➡️", type="primary"):
+                st.session_state.guide_page += 1
+                st.rerun()
+    
+    with col4:
+        # On the last page, show "Let's Go!" button
+        if st.session_state.guide_page == 4:
+            if st.button("Let's Go! 🏁", type="primary"):
+                st.session_state.show_guide = False
+                st.rerun()
+        else:
+            # Show "Skip" button on other pages
+            if st.button("Skip Tutorial"):
+                st.session_state.show_guide = False
+                st.rerun()
+
+# --- WRAP ALL YOUR EXISTING APP CODE IN THIS 'else' BLOCK ---
+else:
+    # --- Main Application ---
+    st.title("Project Pit Wall 🏎️")
+    st.markdown("### Live Race Simulation Dashboard")
+
+    # --- Sidebar for Session Selection ---
+    st.sidebar.header("Race Selection")
+    year = st.sidebar.selectbox("Select Year", [2023, 2022, 2021], index=0)
+    races = ["Bahrain", "Jeddah", "Monaco", "Silverstone", "Monza", "Suzuka", "Las Vegas"]
+    race_name = st.sidebar.selectbox("Select Race", races, index=0)
+
+    # --- Load Data ---
+    try:
+        session, laps = load_session_data(year, race_name, 'R')
+        total_laps = int(laps['LapNumber'].max())
+        driver_list = session.results['Abbreviation'].unique().tolist()
+        default_driver_index = driver_list.index('HAM') if 'HAM' in driver_list else 0
+        managed_driver = st.sidebar.selectbox("Select Driver to Manage", driver_list, index=default_driver_index)
+    except Exception as e:
+        st.error(f"Could not load data for {year} {race_name}. Error: {e}")
+        st.stop()
+
+    st.session_state.managed_driver = managed_driver
+
+
+    # --- Sidebar Controls ---
+    st.sidebar.header("Simulation Control")
+
+    if st.session_state.simulation_running:
+        if st.sidebar.button("⏹️ Stop Simulation"):
+            stop_simulation()
+            st.rerun()
+    else:
+        if st.sidebar.button("▶️ Start Simulation"):
+            start_simulation()
+            st.rerun()
+
+    # --- Main Dashboard Placeholders ---
+    header_placeholder = st.empty()
+    event_placeholder = st.empty()
+
+    # Create main layout
+    col1, col2, col3 = st.columns([2, 1, 2])
+    with col1:
+        leaderboard_placeholder = st.empty()
+    with col2:
+        driver_panel_placeholder = st.empty()
+    with col3:
+        plot_placeholder = st.empty()
+
+    # Strategy phase placeholders - separate for each phase
+    strategy_discussion_placeholder = st.empty()
+    outcome_placeholder = st.empty()
+
+    # Sidebar elements
+    st.sidebar.header("Team Radio 📻")
+    radio_placeholder = st.sidebar.empty()
+    dialog_placeholder = st.sidebar.empty()
+
+    # --- MAIN SIMULATION LOGIC ---
+    if st.session_state.simulation_running:
+        lap_num = st.session_state.current_lap
+        
+        # Pre-calculate Tire Degradation Model
+        degradation_model = {}
+        for compound in laps['Compound'].unique():
+            compound_laps = laps[laps['Compound'] == compound]
+            if not compound_laps.empty:
+                degradation_model[compound] = round(compound_laps['LapTime'].dt.total_seconds().std() * 0.1, 3)
+
+        # Get current lap data
+        current_lap_data = laps.loc[laps['LapNumber'] == lap_num]
+        lap_start_time = current_lap_data['LapStartTime'].min() if not current_lap_data.empty else None
+
+        # --- PHASE CONTROL LOGIC ---
+        if st.session_state.simulation_phase == 'normal':
+            # Check for strategy triggers
+            trigger_reasons = check_strategy_triggers(lap_num, current_lap_data, session, laps, lap_start_time)
+            # --- NEW: Detect interruption context (SC / VSC / Rain) and store it BEFORE running agent discussions ---
+            interruption = None
+            try:
+                if not current_lap_data.empty and 'TrackStatus' in current_lap_data.columns:
+                    track_status = str(current_lap_data['TrackStatus'].iloc[0])
+                    if track_status in ['4', '5']:
+                        interruption = "Safety Car / Red Flag"
+                    elif track_status in ['6', '7']:
+                        interruption = "Virtual Safety Car"
+
+                # Rain detection (reuse existing weather logic)
+                if pd.notna(lap_start_time) and hasattr(session, 'weather_data'):
+                    try:
+                        weather_data = session.weather_data.loc[session.weather_data['Time'] <= lap_start_time]
+                        if (not weather_data.empty) and weather_data.iloc[-1].get('Rainfall'):
+                            interruption = "Rainfall / Wet Track"
+                    except Exception:
+                        # ignore weather parsing errors
+                        pass
+            except Exception:
+                interruption = None
+
+            # Store interruption to session_state so downstream code (run_agent_discussions wrapper) can use it
+            st.session_state['current_interruption'] = interruption
+
+            # Store interruption in session state so downstream functions can access it
+            if interruption:
+                st.session_state['current_interruption'] = interruption
+                # Add it to trigger reasons only if it's not a generic periodic trigger
+                if interruption not in trigger_reasons:
+                    trigger_reasons.append(interruption)
+            else:
+                # clear previous interruption if none currently detected
+                st.session_state['current_interruption'] = None
+
+            update_tire_temperatures()
+
+            if (lap_num % 10 == 0 or lap_num % 10 == 3 or lap_num % 10 == 7) and st.session_state.last_radio_lap != lap_num:
+                # Get driver position for context
+                driver_lap_data_df = laps.loc[(laps['LapNumber'] == lap_num) & (laps['Driver'] == managed_driver)]
+                if not driver_lap_data_df.empty:
+                    driver_position = int(driver_lap_data_df.iloc[0]['Position']) if pd.notna(driver_lap_data_df.iloc[0]['Position']) else 10
                     
-                    # Create 2x2 grid for agent messages
-                    # Create 2x2 grid for agent messages
-                    agent_row1_col1, agent_row1_col2 = st.columns(2)
-                    agent_row2_col1, agent_row2_col2 = st.columns(2)
+                    # Get radio message
+                    radio_msg = get_radio_message_for_lap(lap_num, total_laps, driver_position)
+                    
+                    # Display radio conversation
+                    with radio_placeholder.container():
+                        display_radio_conversation(
+                            radio_placeholder, 
+                            radio_msg["engineer"], 
+                            radio_msg["driver"], 
+                            managed_driver
+                        )
+                    
+                    st.session_state.last_radio_lap = lap_num
+            else:
+                # Show empty radio when no conversation
+                with radio_placeholder.container():
+                    st.markdown(
+                        """
+                        <div style="
+                            background-color: #1a1a1a;
+                            padding: 15px;
+                            border-radius: 8px;
+                            text-align: center;
+                            color: #666;
+                            font-style: italic;
+                        ">
+                            📻 Team Radio - Standby
+                        </div>
+                        """, 
+                        unsafe_allow_html=True
+                    )
 
-                    agent_containers = [
-                        (agent_row1_col1, "Race Engineer", "🔧"),
-                        (agent_row1_col2, "Tire Expert", "🏎️"),
-                        (agent_row2_col1, "Weather Forecaster", "🌤️"),
-                        (agent_row2_col2, "Rival Analyst", "🎯")
-                    ]
+            # Display trigger info in sidebar
+            if trigger_reasons:
+                st.sidebar.write("🛑 Triggered by:", ", ".join(trigger_reasons))
+            else:
+                st.sidebar.write("✅ No trigger this lap")
+            
+            if st.session_state.get('current_interruption'):
+                st.sidebar.warning(f"Interruption detected: {st.session_state['current_interruption']}")
+            
+            # If triggers found and we haven't processed this lap yet
+            if trigger_reasons and st.session_state.last_strategy_lap != lap_num:
+                st.session_state.last_strategy_lap = lap_num
+                st.session_state.simulation_phase = 'strategy_discussion'
+                st.session_state.discussion_completed = False  # Reset discussion flag
+                st.rerun()
+        
+        elif st.session_state.simulation_phase == 'strategy_discussion':
+            # Only run agent discussions if not already completed
+            if not st.session_state.discussion_completed:
+                with st.spinner("Pit wall is deliberating..."):
+                    agent_responses = run_agent_discussions(laps, session, lap_num, managed_driver)
 
-                    # Display agent messages with typewriter effect sequentially
-                    for container, agent_name, icon in agent_containers:
-                        if agent_name in st.session_state.strategy_chat_history:
-                            message_content = st.session_state.strategy_chat_history[agent_name]
-                            display_agent_message_with_typing(container, agent_name, icon, message_content)
+                    # Use the wrapper to ensure interruption context is attached
+                    interruption = st.session_state.get('current_interruption', None)
+                    agent_responses = run_agent_discussions_with_interruption(laps, session, lap_num, managed_driver, interruption=interruption)
+                    st.session_state.strategy_chat_history = agent_responses
+                    st.session_state.discussion_completed = True  # Mark as completed
+                    
+                    # Update tire temperatures for the car display
+                    update_tire_temperatures()
+                
+            # Move to awaiting choice phase
+            st.session_state.simulation_phase = 'awaiting_choice'
+            st.rerun()
+        
+        elif st.session_state.simulation_phase == 'awaiting_choice' or st.session_state.simulation_phase == 'chosen':
 
-                    # Chief Strategist with typewriter effect
+            if st.session_state.simulation_phase == 'awaiting_choice':
+                # Show strategy overlay with new layout
+                with strategy_discussion_placeholder.container():
                     st.markdown("---")
-                    st.markdown("**👑 Chief Strategist - Strategic Options**")
-                    if "Chief Strategist" in st.session_state.strategy_chat_history:
-                        chief_placeholder = st.empty()
-                        chief_content = st.session_state.strategy_chat_history["Chief Strategist"]
+                    st.title("⚔️ PIT WALL STRATEGY REVIEW")
+                    st.markdown("---")
+
+                    # Create two main columns: Left for agent boxes, Right for leaderboard and car
+                    left_col, right_col = st.columns([3, 2])
+                    
+                    with left_col:
+                        st.markdown("### Team Communications")
                         
-                        # Typewriter for Chief Strategist
-                        typed_text = ""
-                        for word in chief_content.split(" "):
-                            typed_text += word + " "
+                        # Create 2x2 grid for agent messages
+                        # Create 2x2 grid for agent messages
+                        agent_row1_col1, agent_row1_col2 = st.columns(2)
+                        agent_row2_col1, agent_row2_col2 = st.columns(2)
+
+                        agent_containers = [
+                            (agent_row1_col1, "Race Engineer", "🔧"),
+                            (agent_row1_col2, "Tire Expert", "🏎️"),
+                            (agent_row2_col1, "Weather Forecaster", "🌤️"),
+                            (agent_row2_col2, "Rival Analyst", "🎯")
+                        ]
+
+                        # Display agent messages with typewriter effect sequentially
+                        for container, agent_name, icon in agent_containers:
+                            if agent_name in st.session_state.strategy_chat_history:
+                                message_content = st.session_state.strategy_chat_history[agent_name]
+                                display_agent_message_with_typing(container, agent_name, icon, message_content)
+
+                        # Chief Strategist with typewriter effect
+                        st.markdown("---")
+                        st.markdown("**👑 Chief Strategist - Strategic Options**")
+                        if "Chief Strategist" in st.session_state.strategy_chat_history:
+                            chief_placeholder = st.empty()
+                            chief_content = st.session_state.strategy_chat_history["Chief Strategist"]
+                            
+                            # Typewriter for Chief Strategist
+                            typed_text = ""
+                            for word in chief_content.split(" "):
+                                typed_text += word + " "
+                                chief_placeholder.markdown(
+                                    f"""
+                                    <div style="
+                                        background-color: #1a472a;
+                                        color: #FFFFFF;
+                                        padding: 15px;
+                                        border-radius: 8px;
+                                        border-left: 4px solid #4CAF50;
+                                        margin: 10px 0;
+                                        font-size: 14px;
+                                    ">
+                                        {typed_text}<span style="opacity: 0.7;">|</span>
+                                    </div>
+                                    """, 
+                                    unsafe_allow_html=True
+                                )
+                                time.sleep(0.03)
+                            
+                            # Final version
                             chief_placeholder.markdown(
                                 f"""
                                 <div style="
@@ -373,184 +481,186 @@ if st.session_state.simulation_running:
                                     margin: 10px 0;
                                     font-size: 14px;
                                 ">
-                                    {typed_text}<span style="opacity: 0.7;">|</span>
+                                    {typed_text.strip()}
                                 </div>
                                 """, 
                                 unsafe_allow_html=True
                             )
-                            time.sleep(0.03)
                         
-                        # Final version
-                        chief_placeholder.markdown(
+                        # MOVED: Decision buttons are now inside the left column
+                        st.markdown("---")
+                        st.subheader("Your Decision, Team Principal")
+
+                        colA, colB = st.columns(2)
+                        if colA.button("Execute Plan A", use_container_width=True, key=f"plan_a_{lap_num}"):
+                            st.session_state.strategy_choice = 'A'
+                            st.session_state.simulation_phase = 'showing_outcome'
+                            strategy_discussion_placeholder.empty()
+                            st.rerun()
+                        if colB.button("Execute Plan B", use_container_width=True, key=f"plan_b_{lap_num}"):
+                            st.session_state.strategy_choice = 'B'
+                            st.session_state.simulation_phase = 'showing_outcome'
+                            strategy_discussion_placeholder.empty()
+                            st.rerun()
+
+                    with right_col:
+                        st.markdown("### Current Race Situation")
+                        
+                        # Show current leaderboard (paused at this lap)
+                        leaderboard_data = laps.loc[laps['LapNumber'] == lap_num][['Driver', 'Position', 'Time', 'Compound', 'TeamColor']]
+                        valid_leaderboard = leaderboard_data.dropna(subset=['Position']).sort_values(by='Position')
+                        
+                        if not valid_leaderboard.empty:
+                            valid_leaderboard['Time'] = pd.to_timedelta(valid_leaderboard['Time'])
+                            valid_leaderboard['Interval'] = valid_leaderboard['Time'].diff()
+                            leaderboard_html = generate_leaderboard_html_broadcast(valid_leaderboard)
+                            st.html(leaderboard_html)
+                        
+                        st.markdown("---")
+                        st.markdown(f"### {managed_driver} - Car Status")
+                        
+                        # Show F1 car tire temperature display
+                        car_html = generate_f1_car_tire_display(st.session_state.tire_temperatures, managed_driver)
+                        st.html(car_html)
+
+                # Don't render normal dashboard when in this phase
+                st.session_state.simulation_phase = 'chosen'
+                st.stop()
+            else:
+                colA, colB = st.columns(2)
+                if colA.button("Execute Plan A", use_container_width=True, key=f"plan_a_{lap_num}"):
+                            st.session_state.strategy_choice = 'A'
+                            st.session_state.simulation_phase = 'showing_outcome'
+                            strategy_discussion_placeholder.empty()
+                            st.rerun()
+                if colB.button("Execute Plan B", use_container_width=True, key=f"plan_b_{lap_num}"):
+                            st.session_state.strategy_choice = 'B'
+                            st.session_state.simulation_phase = 'showing_outcome'
+                            strategy_discussion_placeholder.empty()
+                            st.rerun()
+        
+        elif st.session_state.simulation_phase == 'showing_outcome' or st.session_state.simulation_phase == 'shown':
+
+            plan_a_image_path = os.path.join("plana.gif")   # image to show when decision is correct (Plan A)
+            plan_b_image_path = os.path.join("planb.gif")   # image to show when decision is incorrect (Plan B)
+
+            if st.session_state.simulation_phase == 'showing_outcome':
+                # First time entering this phase: produce paragraphs via the LLM
+                if not st.session_state.choice_processed:
+                    st.session_state.strategy_log.append((lap_num, st.session_state.strategy_choice))
+
+                    with st.spinner("Analyzing your strategic decision with the Decision Analyst..."):
+                        try:
+                            paragraphs = analyze_user_decision(
+                                laps, session, lap_num, managed_driver,
+                                st.session_state.strategy_choice,
+                                st.session_state.strategy_chat_history
+                            )
+                        except Exception as e:
+                            paragraphs = [f"Analysis failed to run: {e}"]
+
+                        if not isinstance(paragraphs, (list, tuple)):
+                            paragraphs = [str(paragraphs)]
+
+                        st.session_state.outcome_paragraphs = paragraphs
+                        st.session_state.choice_processed = True
+
+                # Now render the result + image
+                with outcome_placeholder.container():
+                    st.markdown("---")
+                    st.title("📊 DECISION IMPACT ANALYSIS")
+                    st.markdown("---")
+
+                    paragraphs = st.session_state.get('outcome_paragraphs', [])
+
+                    # Decide which image to show (Plan A is treated as historical/correct)
+                    user_choice = st.session_state.get('strategy_choice', None)
+
+                    def _show_image(path):
+                        """Show image; preserve GIF animation by sending raw bytes."""
+                        if not os.path.exists(path):
+                            return False
+                        lower = path.lower()
+                        try:
+                            if lower.endswith('.gif'):
+                                # Read raw bytes so the GIF animates
+                                with open(path, 'rb') as f:
+                                    img_bytes = f.read()
+                                st.image(img_bytes, use_container_width =True)
+                            else:
+                                # Open with PIL for jpeg/png (PIL is ok here)
+                                img = Image.open(path)
+                                st.image(img, use_container_width =True)
+                            return True
+                        except Exception as _e:
+                            # final fallback: let st.image attempt to load from path
+                            try:
+                                st.image(path, use_container_width =True)
+                                return True
+                            except Exception:
+                                return False
+
+                    # Show image (if available) above the analysis
+                    if user_choice == 'A':
+                        plan_a_image_path = os.path.join("assets", "plan_a.gif")
+                        if os.path.exists(plan_a_image_path):
+                            if plan_a_image_path.lower().endswith('.gif'):
+                                with open(plan_a_image_path, 'rb') as f:
+                                    st.image(f.read(), use_container_width =True)
+                            else:
+                                img = Image.open(plan_a_image_path)
+                                st.image(img, use_container_width =True)
+                    else:
+                        plan_b_image_path = os.path.join("assets", "plan_b.gif")
+                        if os.path.exists(plan_b_image_path):
+                            if plan_b_image_path.lower().endswith('.gif'):
+                                with open(plan_b_image_path, 'rb') as f:
+                                    st.image(f.read(), use_container_width =True)
+                            else:
+                                img = Image.open(plan_b_image_path)
+                                st.image(img, use_container_width =True)
+
+                    plan_a_shown = False
+                    if user_choice == 'A':
+                        plan_a_image_path = os.path.join("plana.gif") 
+                        plan_a_shown = _show_image(plan_a_image_path)
+                    else:
+                        plan_b_image_path = os.path.join("planb.gif")
+                        _show_image(plan_b_image_path)
+
+                    # ---- SHOW ENTIRE TEXT IN A SINGLE BOX (both Plan A and Plan B) ----
+                    # Join paragraphs into a single block so everything renders in one rectangle
+                    full_text = "\n\n".join(paragraphs) if paragraphs else "No analysis available."
+
+                    # Single placeholder for the whole block (typed out)
+                    block_placeholder = st.empty()
+                    typed = ""
+                    # Typewriter per character for the full message
+                    for ch in full_text:
+                        typed += ch
+                        # convert newlines to <br> for HTML display
+                        html_text = typed.replace("\n", "<br>")
+                        block_placeholder.markdown(
                             f"""
                             <div style="
-                                background-color: #1a472a;
-                                color: #FFFFFF;
-                                padding: 15px;
-                                border-radius: 8px;
-                                border-left: 4px solid #4CAF50;
-                                margin: 10px 0;
+                                background-color: #0b1220;
+                                color: #eaf2fb;
+                                padding: 16px;
+                                border-radius: 10px;
+                                margin: 8px 0;
                                 font-size: 14px;
+                                line-height:1.5;
                             ">
-                                {typed_text.strip()}
+                                {html_text}<span style="opacity:0.6">|</span>
                             </div>
-                            """, 
+                            """,
                             unsafe_allow_html=True
                         )
-                    
-                    # MOVED: Decision buttons are now inside the left column
-                    st.markdown("---")
-                    st.subheader("Your Decision, Team Principal")
+                        # you can tune speed here (increase to slow down)
+                        time.sleep(0.008)
 
-                    colA, colB = st.columns(2)
-                    if colA.button("Execute Plan A", use_container_width=True, key=f"plan_a_{lap_num}"):
-                        st.session_state.strategy_choice = 'A'
-                        st.session_state.simulation_phase = 'showing_outcome'
-                        strategy_discussion_placeholder.empty()
-                        st.rerun()
-                    if colB.button("Execute Plan B", use_container_width=True, key=f"plan_b_{lap_num}"):
-                        st.session_state.strategy_choice = 'B'
-                        st.session_state.simulation_phase = 'showing_outcome'
-                        strategy_discussion_placeholder.empty()
-                        st.rerun()
-
-                with right_col:
-                    st.markdown("### Current Race Situation")
-                    
-                    # Show current leaderboard (paused at this lap)
-                    leaderboard_data = laps.loc[laps['LapNumber'] == lap_num][['Driver', 'Position', 'Time', 'Compound', 'TeamColor']]
-                    valid_leaderboard = leaderboard_data.dropna(subset=['Position']).sort_values(by='Position')
-                    
-                    if not valid_leaderboard.empty:
-                        valid_leaderboard['Time'] = pd.to_timedelta(valid_leaderboard['Time'])
-                        valid_leaderboard['Interval'] = valid_leaderboard['Time'].diff()
-                        leaderboard_html = generate_leaderboard_html_broadcast(valid_leaderboard)
-                        st.html(leaderboard_html)
-                    
-                    st.markdown("---")
-                    st.markdown(f"### {managed_driver} - Car Status")
-                    
-                    # Show F1 car tire temperature display
-                    car_html = generate_f1_car_tire_display(st.session_state.tire_temperatures, managed_driver)
-                    st.html(car_html)
-
-            # Don't render normal dashboard when in this phase
-            st.session_state.simulation_phase = 'chosen'
-            st.stop()
-        else:
-            colA, colB = st.columns(2)
-            if colA.button("Execute Plan A", use_container_width=True, key=f"plan_a_{lap_num}"):
-                        st.session_state.strategy_choice = 'A'
-                        st.session_state.simulation_phase = 'showing_outcome'
-                        strategy_discussion_placeholder.empty()
-                        st.rerun()
-            if colB.button("Execute Plan B", use_container_width=True, key=f"plan_b_{lap_num}"):
-                        st.session_state.strategy_choice = 'B'
-                        st.session_state.simulation_phase = 'showing_outcome'
-                        strategy_discussion_placeholder.empty()
-                        st.rerun()
-    
-    elif st.session_state.simulation_phase == 'showing_outcome' or st.session_state.simulation_phase == 'shown':
-
-        plan_a_image_path = os.path.join("plana.gif")   # image to show when decision is correct (Plan A)
-        plan_b_image_path = os.path.join("planb.gif")   # image to show when decision is incorrect (Plan B)
-
-        if st.session_state.simulation_phase == 'showing_outcome':
-            # First time entering this phase: produce paragraphs via the LLM
-            if not st.session_state.choice_processed:
-                st.session_state.strategy_log.append((lap_num, st.session_state.strategy_choice))
-
-                with st.spinner("Analyzing your strategic decision with the Decision Analyst..."):
-                    try:
-                        paragraphs = analyze_user_decision(
-                            laps, session, lap_num, managed_driver,
-                            st.session_state.strategy_choice,
-                            st.session_state.strategy_chat_history
-                        )
-                    except Exception as e:
-                        paragraphs = [f"Analysis failed to run: {e}"]
-
-                    if not isinstance(paragraphs, (list, tuple)):
-                        paragraphs = [str(paragraphs)]
-
-                    st.session_state.outcome_paragraphs = paragraphs
-                    st.session_state.choice_processed = True
-
-            # Now render the result + image
-            with outcome_placeholder.container():
-                st.markdown("---")
-                st.title("📊 DECISION IMPACT ANALYSIS")
-                st.markdown("---")
-
-                paragraphs = st.session_state.get('outcome_paragraphs', [])
-
-                # Decide which image to show (Plan A is treated as historical/correct)
-                user_choice = st.session_state.get('strategy_choice', None)
-
-                def _show_image(path):
-                    """Show image; preserve GIF animation by sending raw bytes."""
-                    if not os.path.exists(path):
-                        return False
-                    lower = path.lower()
-                    try:
-                        if lower.endswith('.gif'):
-                            # Read raw bytes so the GIF animates
-                            with open(path, 'rb') as f:
-                                img_bytes = f.read()
-                            st.image(img_bytes, use_container_width =True)
-                        else:
-                            # Open with PIL for jpeg/png (PIL is ok here)
-                            img = Image.open(path)
-                            st.image(img, use_container_width =True)
-                        return True
-                    except Exception as _e:
-                        # final fallback: let st.image attempt to load from path
-                        try:
-                            st.image(path, use_container_width =True)
-                            return True
-                        except Exception:
-                            return False
-
-                # Show image (if available) above the analysis
-                if user_choice == 'A':
-                    plan_a_image_path = os.path.join("assets", "plan_a.gif")
-                    if os.path.exists(plan_a_image_path):
-                        if plan_a_image_path.lower().endswith('.gif'):
-                            with open(plan_a_image_path, 'rb') as f:
-                                st.image(f.read(), use_container_width =True)
-                        else:
-                            img = Image.open(plan_a_image_path)
-                            st.image(img, use_container_width =True)
-                else:
-                    plan_b_image_path = os.path.join("assets", "plan_b.gif")
-                    if os.path.exists(plan_b_image_path):
-                        if plan_b_image_path.lower().endswith('.gif'):
-                            with open(plan_b_image_path, 'rb') as f:
-                                st.image(f.read(), use_container_width =True)
-                        else:
-                            img = Image.open(plan_b_image_path)
-                            st.image(img, use_container_width =True)
-
-                plan_a_shown = False
-                if user_choice == 'A':
-                    plan_a_image_path = os.path.join("plana.gif") 
-                    plan_a_shown = _show_image(plan_a_image_path)
-                else:
-                    plan_b_image_path = os.path.join("planb.gif")
-                    _show_image(plan_b_image_path)
-
-                # ---- SHOW ENTIRE TEXT IN A SINGLE BOX (both Plan A and Plan B) ----
-                # Join paragraphs into a single block so everything renders in one rectangle
-                full_text = "\n\n".join(paragraphs) if paragraphs else "No analysis available."
-
-                # Single placeholder for the whole block (typed out)
-                block_placeholder = st.empty()
-                typed = ""
-                # Typewriter per character for the full message
-                for ch in full_text:
-                    typed += ch
-                    # convert newlines to <br> for HTML display
-                    html_text = typed.replace("\n", "<br>")
+                    # Replace with final text without caret
+                    final_html = full_text.replace("\n", "<br>")
                     block_placeholder.markdown(
                         f"""
                         <div style="
@@ -562,167 +672,146 @@ if st.session_state.simulation_running:
                             font-size: 14px;
                             line-height:1.5;
                         ">
-                            {html_text}<span style="opacity:0.6">|</span>
+                            {final_html}
                         </div>
                         """,
                         unsafe_allow_html=True
                     )
-                    # you can tune speed here (increase to slow down)
-                    time.sleep(0.008)
 
-                # Replace with final text without caret
-                final_html = full_text.replace("\n", "<br>")
-                block_placeholder.markdown(
-                    f"""
-                    <div style="
-                        background-color: #0b1220;
-                        color: #eaf2fb;
-                        padding: 16px;
-                        border-radius: 10px;
-                        margin: 8px 0;
-                        font-size: 14px;
-                        line-height:1.5;
-                    ">
-                        {final_html}
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
+                    # Continue button
+                    if st.button("Continue Race", type="primary", use_container_width=True, key=f"continue_{lap_num}"):
+                        # Clear placeholders/state and advance
+                        st.session_state.outcome_paragraphs = []
+                        st.session_state.outcome_text = ""
+                        st.session_state.choice_processed = False
+                        strategy_discussion_placeholder.empty()
+                        outcome_placeholder.empty()
+                        advance_lap()
+                        st.rerun()
 
-                # Continue button
-                if st.button("Continue Race", type="primary", use_container_width=True, key=f"continue_{lap_num}"):
-                    # Clear placeholders/state and advance
-                    st.session_state.outcome_paragraphs = []
-                    st.session_state.outcome_text = ""
-                    st.session_state.choice_processed = False
-                    strategy_discussion_placeholder.empty()
-                    outcome_placeholder.empty()
-                    advance_lap()
-                    st.rerun()
+                # After first render mark the phase as 'shown' so a refresh doesn't re-run analysis
+                st.session_state.simulation_phase = 'shown'
+                st.stop()
 
-            # After first render mark the phase as 'shown' so a refresh doesn't re-run analysis
-            st.session_state.simulation_phase = 'shown'
-            st.stop()
+            else:
+                # If we're already in 'shown' (user refreshed / re-entered), just advance when Continue pressed
+                st.session_state.outcome_paragraphs = []
+                st.session_state.outcome_text = ""
+                st.session_state.choice_processed = False
+                strategy_discussion_placeholder.empty()
+                outcome_placeholder.empty()
+                advance_lap()
+                st.rerun()
+                
+        # --- NORMAL DASHBOARD RENDERING (only in 'normal' phase) ---
+        if st.session_state.simulation_phase == 'normal':
+            # Event Detection
+            with event_placeholder.container():
+                if not current_lap_data.empty:
+                    track_status = current_lap_data['TrackStatus'].iloc[0]
+                    if track_status in ['4', '5']: 
+                        st.error("⚠️ SAFETY CAR / RED FLAG", icon="🚨")
+                    elif track_status in ['6', '7']: 
+                        st.warning("🟡 VIRTUAL SAFETY CAR", icon="⚠️")
+                    
+                    if pd.notna(lap_start_time):
+                        weather_data = session.weather_data.loc[session.weather_data['Time'] <= lap_start_time]
+                        if not weather_data.empty and weather_data.iloc[-1]['Rainfall']: 
+                            st.info("🌧️ RAIN DETECTED", icon="💧")
 
-        else:
-            # If we're already in 'shown' (user refreshed / re-entered), just advance when Continue pressed
-            st.session_state.outcome_paragraphs = []
-            st.session_state.outcome_text = ""
-            st.session_state.choice_processed = False
-            strategy_discussion_placeholder.empty()
-            outcome_placeholder.empty()
+            # Header
+            with header_placeholder.container():
+                st.subheader(f"Lap {lap_num}/{total_laps}")
+
+            # Leaderboard
+            with leaderboard_placeholder.container():
+                st.markdown("##### Timing Tower")
+                
+                leaderboard_data = laps.loc[laps['LapNumber'] == lap_num][['Driver', 'Position', 'Time', 'Compound', 'TeamColor']]
+                valid_leaderboard = leaderboard_data.dropna(subset=['Position']).sort_values(by='Position')
+
+                if not valid_leaderboard.empty:
+                    valid_leaderboard['Time'] = pd.to_timedelta(valid_leaderboard['Time'])
+                    valid_leaderboard['Interval'] = valid_leaderboard['Time'].diff()
+                    leaderboard_html = generate_leaderboard_html_broadcast(valid_leaderboard)
+                    st.html(leaderboard_html)
+
+            # Driver Panel
+            with driver_panel_placeholder.container():
+                driver_lap_data_df = laps.loc[(laps['LapNumber'] == lap_num) & (laps['Driver'] == managed_driver)]
+                if not driver_lap_data_df.empty:
+                    driver_lap_data = driver_lap_data_df.iloc[0]
+                    driver_pos = driver_lap_data['Position']
+                    st.subheader(f"Managing: {managed_driver}")
+                    status = "IN PIT" if pd.isna(driver_pos) else "Racing"
+                    st.metric("Status", status)
+                    if status == "Racing":
+                        st.metric("Position", int(driver_pos))
+                    
+                    st.markdown("---")
+                    
+                    # Tire Expert Panel
+                    st.subheader("Tire Expert Intel")
+                    current_compound = driver_lap_data['Compound']
+                    
+                    if pd.notna(driver_lap_data['TyreLife']):
+                        tyre_age = int(driver_lap_data['TyreLife'])
+                        degradation = degradation_model.get(current_compound, 0.150)
+                        predicted_lifespan = max(0, 25 - tyre_age) if 'SOFT' in str(current_compound) else max(0, 35 - tyre_age)
+                        
+                        st.metric(f"{current_compound} Tire Status", f"{tyre_age} Laps Old")
+                        st.write(f"Predicted Remaining Laps: **{predicted_lifespan}**")
+                        st.write(f"Est. Time Loss/Lap: **{degradation}s**")
+                    else:
+                        st.metric(f"{current_compound} Tire Status", "Data Unavailable")
+
+                    st.markdown("---")
+
+                    # Rival Analyst Panel
+                    st.subheader("Rival Analyst Intel")
+                    if status == "Racing" and not valid_leaderboard.empty:
+                        car_ahead = valid_leaderboard[valid_leaderboard['Position'] == driver_pos - 1]
+                        car_behind = valid_leaderboard[valid_leaderboard['Position'] == driver_pos + 1]
+                        
+                        gap_ahead_str = "Clear Track"
+                        if not car_ahead.empty:
+                            gap_ahead_str = f"{car_ahead.iloc[0]['Driver']} (+{round(2.5 + (lap_num % 4) * 0.1, 1)}s)"
+
+                        gap_behind_str = "Clear Track"
+                        if not car_behind.empty:
+                            gap_behind_str = f"{car_behind.iloc[0]['Driver']} (-{round(1.5 + (lap_num % 3) * 0.1, 1)}s)"
+                        
+                        st.metric("Car Ahead", gap_ahead_str)
+                        st.metric("Car Behind", gap_behind_str)
+
+                    st.markdown("---")
+
+                    # Strategy Simulation Panel
+                    st.subheader("Strategy Simulation")
+                    pit_stop_time_loss = 23
+                    predicted_rejoin_pos = int(driver_pos + 5) if status == "Racing" else "N/A"
+                    
+                    st.metric("Pit Stop Time Loss", f"~{pit_stop_time_loss} seconds")
+                    st.metric("Predicted Re-join Position", f"P{predicted_rejoin_pos}")
+
+                    
+
+            # Plot
+            with plot_placeholder.container():
+                if not valid_leaderboard.empty:
+                    top_5_drivers = valid_leaderboard.head(5)['Driver'].tolist()
+                    plot_data = laps[laps['Driver'].isin(top_5_drivers) & (laps['LapNumber'] <= lap_num)][['Driver', 'LapNumber', 'LapTime']]
+                    if not plot_data.empty:
+                        plot_data['LapTimeSeconds'] = plot_data['LapTime'].dt.total_seconds()
+                        fig = px.line(plot_data, x='LapNumber', y='LapTimeSeconds', color='Driver', 
+                                    labels={'LapNumber': 'Lap', 'LapTimeSeconds': 'Lap Time (s)'})
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    st.markdown("---")
+                    car_html = generate_f1_car_tire_display(st.session_state.tire_temperatures, managed_driver)
+                    st.html(car_html)
+
+            # Advance lap after a delay (only in normal phase)
+            time.sleep(2)
             advance_lap()
             st.rerun()
-            
-    # --- NORMAL DASHBOARD RENDERING (only in 'normal' phase) ---
-    if st.session_state.simulation_phase == 'normal':
-        # Event Detection
-        with event_placeholder.container():
-            if not current_lap_data.empty:
-                track_status = current_lap_data['TrackStatus'].iloc[0]
-                if track_status in ['4', '5']: 
-                    st.error("⚠️ SAFETY CAR / RED FLAG", icon="🚨")
-                elif track_status in ['6', '7']: 
-                    st.warning("🟡 VIRTUAL SAFETY CAR", icon="⚠️")
-                
-                if pd.notna(lap_start_time):
-                    weather_data = session.weather_data.loc[session.weather_data['Time'] <= lap_start_time]
-                    if not weather_data.empty and weather_data.iloc[-1]['Rainfall']: 
-                        st.info("🌧️ RAIN DETECTED", icon="💧")
-
-        # Header
-        with header_placeholder.container():
-            st.subheader(f"Lap {lap_num}/{total_laps}")
-
-        # Leaderboard
-        with leaderboard_placeholder.container():
-            st.markdown("##### Timing Tower")
-            
-            leaderboard_data = laps.loc[laps['LapNumber'] == lap_num][['Driver', 'Position', 'Time', 'Compound', 'TeamColor']]
-            valid_leaderboard = leaderboard_data.dropna(subset=['Position']).sort_values(by='Position')
-
-            if not valid_leaderboard.empty:
-                valid_leaderboard['Time'] = pd.to_timedelta(valid_leaderboard['Time'])
-                valid_leaderboard['Interval'] = valid_leaderboard['Time'].diff()
-                leaderboard_html = generate_leaderboard_html_broadcast(valid_leaderboard)
-                st.html(leaderboard_html)
-
-        # Driver Panel
-        with driver_panel_placeholder.container():
-            driver_lap_data_df = laps.loc[(laps['LapNumber'] == lap_num) & (laps['Driver'] == managed_driver)]
-            if not driver_lap_data_df.empty:
-                driver_lap_data = driver_lap_data_df.iloc[0]
-                driver_pos = driver_lap_data['Position']
-                st.subheader(f"Managing: {managed_driver}")
-                status = "IN PIT" if pd.isna(driver_pos) else "Racing"
-                st.metric("Status", status)
-                if status == "Racing":
-                    st.metric("Position", int(driver_pos))
-                
-                st.markdown("---")
-                
-                # Tire Expert Panel
-                st.subheader("Tire Expert Intel")
-                current_compound = driver_lap_data['Compound']
-                
-                if pd.notna(driver_lap_data['TyreLife']):
-                    tyre_age = int(driver_lap_data['TyreLife'])
-                    degradation = degradation_model.get(current_compound, 0.150)
-                    predicted_lifespan = max(0, 25 - tyre_age) if 'SOFT' in str(current_compound) else max(0, 35 - tyre_age)
-                    
-                    st.metric(f"{current_compound} Tire Status", f"{tyre_age} Laps Old")
-                    st.write(f"Predicted Remaining Laps: **{predicted_lifespan}**")
-                    st.write(f"Est. Time Loss/Lap: **{degradation}s**")
-                else:
-                    st.metric(f"{current_compound} Tire Status", "Data Unavailable")
-
-                st.markdown("---")
-
-                # Rival Analyst Panel
-                st.subheader("Rival Analyst Intel")
-                if status == "Racing" and not valid_leaderboard.empty:
-                    car_ahead = valid_leaderboard[valid_leaderboard['Position'] == driver_pos - 1]
-                    car_behind = valid_leaderboard[valid_leaderboard['Position'] == driver_pos + 1]
-                    
-                    gap_ahead_str = "Clear Track"
-                    if not car_ahead.empty:
-                        gap_ahead_str = f"{car_ahead.iloc[0]['Driver']} (+{round(2.5 + (lap_num % 4) * 0.1, 1)}s)"
-
-                    gap_behind_str = "Clear Track"
-                    if not car_behind.empty:
-                        gap_behind_str = f"{car_behind.iloc[0]['Driver']} (-{round(1.5 + (lap_num % 3) * 0.1, 1)}s)"
-                    
-                    st.metric("Car Ahead", gap_ahead_str)
-                    st.metric("Car Behind", gap_behind_str)
-
-                st.markdown("---")
-
-                # Strategy Simulation Panel
-                st.subheader("Strategy Simulation")
-                pit_stop_time_loss = 23
-                predicted_rejoin_pos = int(driver_pos + 5) if status == "Racing" else "N/A"
-                
-                st.metric("Pit Stop Time Loss", f"~{pit_stop_time_loss} seconds")
-                st.metric("Predicted Re-join Position", f"P{predicted_rejoin_pos}")
-
-                
-
-        # Plot
-        with plot_placeholder.container():
-            if not valid_leaderboard.empty:
-                top_5_drivers = valid_leaderboard.head(5)['Driver'].tolist()
-                plot_data = laps[laps['Driver'].isin(top_5_drivers) & (laps['LapNumber'] <= lap_num)][['Driver', 'LapNumber', 'LapTime']]
-                if not plot_data.empty:
-                    plot_data['LapTimeSeconds'] = plot_data['LapTime'].dt.total_seconds()
-                    fig = px.line(plot_data, x='LapNumber', y='LapTimeSeconds', color='Driver', 
-                                labels={'LapNumber': 'Lap', 'LapTimeSeconds': 'Lap Time (s)'})
-                    st.plotly_chart(fig, use_container_width=True)
-                
-                st.markdown("---")
-                car_html = generate_f1_car_tire_display(st.session_state.tire_temperatures, managed_driver)
-                st.html(car_html)
-
-        # Advance lap after a delay (only in normal phase)
-        time.sleep(2)
-        advance_lap()
-        st.rerun()

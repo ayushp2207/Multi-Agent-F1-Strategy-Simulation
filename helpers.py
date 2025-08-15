@@ -151,6 +151,8 @@ def initialize_session_state():
         'last_radio_lap': 0,
         'radio_conversation_active': False,
         'radio_messages_shown': [],  # Track which messages we've used
+        'show_guide': True,  # Controls guide visibility
+        'guide_page': 1
     }
     
     for key, default_value in defaults.items():
