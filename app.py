@@ -134,75 +134,75 @@ initialize_session_state()
 if st.session_state.show_guide:
     set_page_background('F1.avif')
 
-    # Custom CSS for a more refined look
+    # CSS for the container and text styling
     st.markdown("""
         <style>
         .guide-container {
-            background-color: rgba(15, 15, 15, 0.7); /* Darker, classier background */
-            backdrop-filter: blur(12px);
-            border-radius: 20px;
+            background-color: rgba(10, 10, 10, 0.75);
+            backdrop-filter: blur(15px);
+            border-radius: 25px;
             padding: 2rem 3rem;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #FFFFFF; /* White text */
-            text-align: center; /* Center align text */
+            color: #FFFFFF !important; /* Force all text inside to be white */
         }
-        .guide-container h1, .guide-container h2 {
-            font-weight: 700; /* Bold headers */
-            text-shadow: 0px 0px 10px rgba(0,0,0,0.5); /* Subtle shadow for pop */
+        .guide-container h2 {
+            font-size: 2.5rem; /* Larger headers */
+            font-weight: 700;
+            text-shadow: 0px 0px 10px rgba(0,0,0,0.5);
+            text-align: center;
         }
         .guide-container p {
-            font-size: 1.1rem; /* Slightly larger body text */
-            font-weight: 400; /* Normal weight for readability */
+            font-size: 1.1rem;
+            font-weight: 400;
+            text-align: left; /* Left-align paragraphs for readability */
+        }
+        .guide-container b {
+            color: #1ED760; /* A cool accent color for bolded text */
         }
         </style>
     """, unsafe_allow_html=True)
 
-    # Use columns to center the guide box
+    # Use columns to center the guide box on the page
     _, center_col, _ = st.columns([1, 2, 1])
     with center_col:
-        # Wrap the guide content in our styled container
-        st.markdown('<div class="guide-container">', unsafe_allow_html=True)
+        # We will build all the text content as one HTML string
+        html_content = ""
 
         # Page 1: Introduction
         if st.session_state.guide_page == 1:
-            st.markdown("<h2>Welcome to the Pit Wall 🏎️</h2>", unsafe_allow_html=True)
-            st.markdown(
-                """
+            html_content = """
+                <h2>Welcome to the Pit Wall 🏎️</h2>
                 <p>You're not just a spectator anymore. You are the <b>Team Principal</b>.
-                This simulator drops you into the hot seat of F1 strategy. Your calls, your pressure, your victory.</p>
-                """, unsafe_allow_html=True
-            )
+                This simulator drops you into the hot seat of F1 strategy. Your calls, your pressure, your victory. This isn't just a simulation; it's a real-time test of your strategic nerve against historical race data.</p>
+            """
 
         # Page 2: How to Start
         elif st.session_state.guide_page == 2:
-            st.markdown("<h2>Step 1: The Pre-Race Briefing 📋</h2>", unsafe_allow_html=True)
-            st.markdown(
-                """
+            html_content = """
+                <h2>Step 1: The Pre-Race Briefing 📋</h2>
                 <p>Configure your simulation in the sidebar. Choose the <b>Year</b>, <b>Race</b>, and your chosen <b>Driver</b>.
                 When you're ready, hit <b>▶️ Start Simulation</b> and go lights out.</p>
-                """, unsafe_allow_html=True
-            )
+            """
         
         # Page 3: The Dashboard Explained
         elif st.session_state.guide_page == 3:
-            st.markdown("<h2>Step 2: Reading the Race 📊</h2>", unsafe_allow_html=True)
-            st.markdown(
-                """
+            html_content = """
+                <h2>Step 2: Reading the Race 📊</h2>
                 <p>Your live dashboard is your eyes on the track. Monitor the <b>Timing Tower</b>, your driver's <b>Tire Status</b>, and gaps to <b>Rivals</b>. Every piece of data is a clue.</p>
-                """, unsafe_allow_html=True
-            )
+            """
 
         # Page 4: Strategy Decisions
         elif st.session_state.guide_page == 4:
-            st.markdown("<h2>Step 3: It's Your Call ⚔️</h2>", unsafe_allow_html=True)
-            st.markdown(
-                """
+            html_content = """
+                <h2>Step 3: It's Your Call ⚔️</h2>
                 <p>When the race pauses, your AI Pit Wall will report in. Your <b>Chief Strategist</b> will present two paths: <b>Plan A</b> and <b>Plan B</b>. There's no right answer, only consequences. Make the call.</p>
-                """, unsafe_allow_html=True
-            )
+            """
 
-        # Navigation Buttons
-        st.markdown("<br>", unsafe_allow_html=True)
+        # Render the entire guide box with all its text content in one go
+        st.markdown(f'<div class="guide-container">{html_content}</div>', unsafe_allow_html=True)
+
+        # Navigation buttons placed just below the box for a clean look
+        st.write("") # Spacer
         nav_col1, nav_col2, nav_col3 = st.columns([1, 1, 1])
         with nav_col1:
             if st.session_state.guide_page > 1:
@@ -218,8 +218,6 @@ if st.session_state.show_guide:
                 if st.button("Engage 🏁", type="primary", use_container_width=True):
                     st.session_state.show_guide = False
                     st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
 
 else:
     # --- Main Application ---
