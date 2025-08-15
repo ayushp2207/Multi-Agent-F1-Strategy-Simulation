@@ -12,7 +12,29 @@ from agents import (
 )
 import autogen
 import re
+import base64
 
+
+def get_base64_of_bin_file(bin_file):
+    """ Encodes a binary file to a base64 string. """
+    with open(bin_file, 'rb') as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+def set_page_background(png_file):
+    """ Sets a background image for the Streamlit page. """
+    bin_str = get_base64_of_bin_file(png_file)
+    page_bg_img = f'''
+    <style>
+    .stApp {{
+        background-image: url("data:image/png;base64,{bin_str}");
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    </style>
+    '''
+    st.markdown(page_bg_img, unsafe_allow_html=True)
 
 def typewriter_generator_single(text: str, delay: float = 0.05):
     """A generator function that yields words from a single text with a delay."""

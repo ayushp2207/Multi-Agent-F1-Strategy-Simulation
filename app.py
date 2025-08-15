@@ -16,7 +16,7 @@ from PIL import Image
 import autogen
 from helpers import (
     analyze_user_decision, run_agent_discussions_with_interruption, initialize_session_state, display_agent_message_with_typing,
-    initialize_session_state, check_strategy_triggers, run_agent_discussions, display_radio_conversation, get_radio_message_for_lap)
+    initialize_session_state, check_strategy_triggers, run_agent_discussions, display_radio_conversation, get_radio_message_for_lap, set_page_background )
 
 def generate_simulated_temp(tire_position):
     """Generate realistic simulated tire temperatures"""
@@ -132,93 +132,102 @@ st.set_page_config(page_title="Project Pit Wall | F1 Strategy", layout="wide")
 initialize_session_state()
 
 if st.session_state.show_guide:
-    st.title("Welcome to Project Pit Wall! 🏎️")
-    
-    # Page 1: Introduction
-    if st.session_state.guide_page == 1:
-        st.header("Step into the Shoes of a Team Principal")
-        st.markdown(
-            """
-            This simulator puts you in charge of F1 race strategy. Using a team of AI agents, you'll analyze real race data and make the critical calls that can win or lose a Grand Prix.
-            
-            Your mission is to experience the high-pressure, real-time decision-making that defines the sport.
-            """
-        )
+    # Set the cool background
+    set_page_background('F1.avif')
 
-    # Page 2: How to Start
-    elif st.session_state.guide_page == 2:
-        st.header("Your Pre-Race Setup")
-        st.markdown(
-            """
-            To begin, you need to set the scene for your simulation:
-            
-            1.  **Select Year:** Choose the F1 season.
-            2.  **Select Race:** Pick the Grand Prix venue.
-            3.  **Select Driver:** Choose the driver you want to manage.
-            
-            Once you've made your selections in the sidebar, click **"▶️ Start Simulation"** to go lights out!
-            """
-        )
-    
-    # Page 3: The Dashboard Explained
-    elif st.session_state.guide_page == 3:
-        st.header("The Live Race Dashboard")
-        st.markdown(
-            """
-            As the simulation runs, you'll see a live dashboard with key information:
-            - **Timing Tower:** A live leaderboard showing positions and intervals.
-            - **Driver Panel:** Your driver's status, tire wear, and gaps to nearby rivals.
-            - **Lap Time Chart:** A plot comparing the lap times of the top drivers.
-            - **Live Tire Status:** A visual of your car's tire temperatures, which are critical for performance and strategy.
-            """
-        )
+    # Custom CSS for the "frosted glass" effect
+    st.markdown("""
+        <style>
+        .guide-container {
+            background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent black */
+            backdrop-filter: blur(10px); /* The frosted glass effect */
+            border-radius: 20px;
+            padding: 2rem 3rem;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            color: white;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
-    # Page 4: Strategy Decisions
-    elif st.session_state.guide_page == 4:
-        st.header("Making the Call from the Pit Wall")
-        st.markdown(
-            """
-            At key moments, the simulation will pause, and your AI pit wall will provide reports:
-            - **🔧 Race Engineer:** Gives a technical overview of the car's status.
-            - **🏎️ Tire Expert:** Reports on tire wear and degradation.
-            - **🌤️ Weather Forecaster:** Provides updates on potential rain.
-            - **🎯 Rival Analyst:** Analyzes threats from competing drivers.
-            
-            Based on their input, the **👑 Chief Strategist** will present you with two options: **Plan A** and **Plan B**. Choose wisely! After your decision, you'll see an analysis of its impact.
-            """
-        )
+    st.title("") # Clear the default title to give more space
 
-    # Navigation Buttons
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns([1, 1, 5, 1.2])
+    # Wrap the guide content in our styled container
+    with st.container():
+        st.markdown('<div class="guide-container">', unsafe_allow_html=True)
 
-    with col1:
-        # Show "Previous" button if not on the first page
-        if st.session_state.guide_page > 1:
-            if st.button("⬅️ Previous"):
-                st.session_state.guide_page -= 1
-                st.rerun()
+        # Page 1: Introduction
+        if st.session_state.guide_page == 1:
+            st.header("Welcome to the Pit Wall 🏎️")
+            st.markdown(
+                """
+                You're not just a spectator anymore. You are the **Team Principal**.
+                
+                Project Pit Wall drops you into the hot seat of F1 strategy. Your calls, your pressure, your victory. This isn't just a simulation; it's a real-time test of your strategic nerve against historical race data.
+                """
+            )
 
-    with col2:
-        # Show "Next" button if not on the last page
-        if st.session_state.guide_page < 4:
-            if st.button("Next ➡️", type="primary"):
-                st.session_state.guide_page += 1
-                st.rerun()
-    
-    with col4:
-        # On the last page, show "Let's Go!" button
-        if st.session_state.guide_page == 4:
-            if st.button("Let's Go! 🏁", type="primary"):
-                st.session_state.show_guide = False
-                st.rerun()
-        else:
-            # Show "Skip" button on other pages
-            if st.button("Skip Tutorial"):
-                st.session_state.show_guide = False
-                st.rerun()
+        # Page 2: How to Start
+        elif st.session_state.guide_page == 2:
+            st.header("Step 1: The Pre-Race Briefing 📋")
+            st.markdown(
+                """
+                Every race starts with a plan. Configure your simulation in the sidebar:
+                
+                - **Select Year:** Choose the battleground season.
+                - **Select Race:** Pick the circuit that will test your wits.
+                - **Select Driver:** Back your champion.
+                
+                When you're ready, hit **▶️ Start Simulation** and go lights out.
+                """
+            )
 
-# --- WRAP ALL YOUR EXISTING APP CODE IN THIS 'else' BLOCK ---
+        # Page 3: The Dashboard Explained
+        elif st.session_state.guide_page == 3:
+            st.header("Step 2: Reading the Race 📊")
+            st.markdown(
+                """
+                Once the race is live, you'll have a constant stream of data on your dashboard:
+                
+                - **Timing Tower:** Live positions. Who's hunting, who's hunted.
+                - **Driver Intel:** Critical data on your driver—tire health, gaps to rivals, and more.
+                - **Lap Time Telemetry:** Visualize the pace. Are you gaining or losing ground?
+                - **Live Tire Status:** The heart of strategy. Keep a close eye on your tire temperatures—hot tires are fast, but they don't last.
+                """
+            )
+
+        # Page 4: Strategy Decisions
+        elif st.session_state.guide_page == 4:
+            st.header("Step 3: It's Your Call ⚔️")
+            st.markdown(
+                """
+                At critical moments, the race will pause. Your AI Pit Wall will feed you intel from four key specialists: the **Race Engineer**, **Tire Expert**, **Weather Forecaster**, and **Rival Analyst**.
+                
+                Your **Chief Strategist** will process their reports and present you with two paths: **Plan A** and **Plan B**. There's no right answer, only consequences. Make the call, and see how your decision stacks up against history.
+                """
+            )
+
+        # Navigation Buttons
+        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 6, 1.2])
+
+        with col1:
+            if st.session_state.guide_page > 1:
+                if st.button("⬅️ Back"):
+                    st.session_state.guide_page -= 1
+                    st.rerun()
+
+        with col3:
+            if st.session_state.guide_page < 4:
+                if st.button("Next ➡️", type="primary"):
+                    st.session_state.guide_page += 1
+                    st.rerun()
+            elif st.session_state.guide_page == 4:
+                if st.button("Engage 🏁", type="primary"):
+                    st.session_state.show_guide = False
+                    st.rerun()
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
 else:
     # --- Main Application ---
     st.title("Project Pit Wall 🏎️")
