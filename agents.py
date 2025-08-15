@@ -2,7 +2,6 @@
 import autogen
 import streamlit as st
 
-# Access the secret from Streamlit's secret management
 GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
 
 config_list_groq = [{"model": "llama3-8b-8192", "api_key": GROQ_API_KEY, "api_type": "groq"}]
@@ -16,7 +15,7 @@ RaceEngineerAgent = autogen.ConversableAgent(
 You are the Formula 1 Race Engineer speaking over the team radio.
 Respond with concise factual updates and measured technical details. See how the race engineers communicate with the drivers. They keep messages short but sometimes have fun too.
 Take into account the context of different drivers. For example, if the driver is a rookie, you might want to be more encouraging and supportive.
-Try to bring in personalized elements, like the driver's name or nickname, to make it feel more authentic. End your message with a prompt for the Chief Strategist: 'Chief, over to you.'
+Try to bring in personalized elements to make it feel more authentic. End your message with a prompt for the Chief Strategist: 'Chief, over to you.'
 """,
     llm_config=llm_config,
     human_input_mode="NEVER"

@@ -14,7 +14,7 @@ def load_session_data(year, race, session_type):
     
     session = ff1.get_session(year, race, session_type)
     
-    # CORRECT: This loads the data needed for session.car_data
+    # This loads the data needed for session.car_data
     session.load(telemetry=True) 
     
     laps = session.laps

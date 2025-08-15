@@ -165,7 +165,7 @@ if st.session_state.show_guide:
     # Use columns to center the guide box on the page
     _, center_col, _ = st.columns([1, 2, 1])
     with center_col:
-        # We will build all the text content as one HTML string
+        
         html_content = ""
 
         # Page 1: Introduction
@@ -201,7 +201,7 @@ if st.session_state.show_guide:
         # Render the entire guide box with all its text content in one go
         st.markdown(f'<div class="guide-container">{html_content}</div>', unsafe_allow_html=True)
 
-        # Navigation buttons placed just below the box for a clean look
+        
         st.write("") # Spacer
         nav_col1, nav_col2, nav_col3 = st.columns([1, 1, 1])
         with nav_col1:
@@ -220,6 +220,7 @@ if st.session_state.show_guide:
                     st.rerun()
 
 else:
+    set_page_background('F1.avif')
     # --- Main Application ---
     st.title("Project Pit Wall 🏎️")
     st.markdown("### Live Race Simulation Dashboard")
@@ -423,7 +424,6 @@ else:
                         st.markdown("### Team Communications")
                         
                         # Create 2x2 grid for agent messages
-                        # Create 2x2 grid for agent messages
                         agent_row1_col1, agent_row1_col2 = st.columns(2)
                         agent_row2_col1, agent_row2_col2 = st.columns(2)
 
@@ -487,7 +487,6 @@ else:
                                 unsafe_allow_html=True
                             )
                         
-                        # MOVED: Decision buttons are now inside the left column
                         st.markdown("---")
                         st.subheader("Your Decision, Team Principal")
 
@@ -628,8 +627,6 @@ else:
                         plan_b_image_path = os.path.join("planb.gif")
                         _show_image(plan_b_image_path)
 
-                    # ---- SHOW ENTIRE TEXT IN A SINGLE BOX (both Plan A and Plan B) ----
-                    # Join paragraphs into a single block so everything renders in one rectangle
                     full_text = "\n\n".join(paragraphs) if paragraphs else "No analysis available."
 
                     # Single placeholder for the whole block (typed out)
