@@ -31,6 +31,11 @@ Modeling the pit wall as multiple specialist agents yields briefings that feel a
 The project uses a Llama-family LLM for the agents and the Decision Analyst. The LLM is prompted to prioritize interruption context (Safety Car / Rain) when present, and to produce short, educational paragraphs rather than opaque technical prose. Use the included placeholder image to show the Llama model branding.
 ![./readme_imgs/meta-llama.jpg](./readme_imgs/meta-llama.jpg)
 
+
+## Data Collection Credits
+
+This project uses the FastF1 library to load and parse historical Formula 1 session and lap telemetry that powers the simulation. FastF1 provides the race session objects, lap timing, and telemetry streams that make the pit-wall scenarios realistic. Add the official FastF1 link here: [FastF1](https://github.com/theOehrly/Fast-F1).
+
 ## Who benefits
 
 Product managers, hiring managers, and recruiters get an immediate sense of applied ML + product thinking: domain fidelity, agent design, and explainability. Motorsport coaches and fans gain a hands-on teaching tool that makes abstract strategic trade-offs tangible. Learners get a safe playground to experiment: try bold alternatives, see why they fail in context, and internalize cornerstones of F1 strategy.
