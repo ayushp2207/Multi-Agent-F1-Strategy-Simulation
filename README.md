@@ -2,6 +2,8 @@
 
 Project Pit Wall is an immersive Formula 1 pit-wall experience that turns historical race telemetry into an interactive, educational simulator. It recreates the real-world flow of decisions on the pit wall and lets a human Team Principal step in, compare alternate strategies, and learn why pro teams chose what they did. The product brings real race context, domain-expert voices, and explainable AI into a single, polished demo — perfect for interviews, demos, and teaching strategy.
 
+Try the live Streamlit app demo here: [Live App Demo: ](https://pitwall-multi-agent-f1-strategy-simulation.streamlit.app/)
+
 ## What this project brings (the value)
 
 Project Pit Wall transforms raw race data into an experience that teaches decision-making rather than just showing numbers. Instead of only displaying lap times and positions, the app assembles specialist perspectives — Race Engineer, Tire Expert, Weather Forecaster, Rival Analyst and Chief Strategist — then presents two competing plans: One of them is the historical choice taken in the race, and the other is an alternative. When you pick a plan the Decision Analyst (LLM) explains, in plain language, why the historical team chose what they did or why your alternative might be risky. This makes the project ideal for motorsport fans who want to learn strategy, interviewers who want to assess your product thinking, and hiring managers who want to see domain + ML applied thoughtfully.
@@ -34,7 +36,7 @@ The project uses a Llama-family LLM for the agents and the Decision Analyst. The
 
 ## Data Collection Credits
 
-This project uses the FastF1 library to load and parse historical Formula 1 session and lap telemetry that powers the simulation. FastF1 provides the race session objects, lap timing, and telemetry streams that make the pit-wall scenarios realistic. Add the official FastF1 link here: [FastF1](https://github.com/theOehrly/Fast-F1).
+This project uses the FastF1 library to load and parse historical Formula 1 session and lap telemetry that powers the simulation. FastF1 provides the race session objects, lap timing, and telemetry streams that make the pit-wall scenarios realistic. Checkout the Fast F1 GitHub repo here: [FastF1](https://github.com/theOehrly/Fast-F1).
 
 ## Who benefits
 
